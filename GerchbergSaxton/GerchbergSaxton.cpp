@@ -9,6 +9,8 @@
 #include "CPU.h"
 #include "GPU.h"
 
+#define DLL_PUBLIC __attribute__((visibility("default")))
+
 // Allocate double array on host
 double* Double(int Length, double val)
 {
@@ -25,27 +27,26 @@ double* Double(int Length, double val)
 	return host;
 }
 
-double* GerchbergSaxtonPhase = NULL;
-
 extern "C"
 {
-	void Calculate(int argc, void** argv)
+	DLL_PUBLIC void Calculate(int argc, void** argv)
 	{
-		if (argc >= 13)
+		if (argc >= 14)
 		{
-			auto M = *((int*)(argv[0]));  // SLM width in # of pixels
-			auto N = *((int*)(argv[1]));  // SLM height in # of pixels
-			auto Ngs = *((int*)(argv[2]));  // Ngs
-			auto h = *((double*)(argv[3]));  // hologram pixel size
-			auto gaussian = *((bool*)(argv[4]));  // Gaussian Illumination
-			auto r = *((double*)(argv[5]));  // input Gaussian beam waist
-			auto aperture = *((int*)(argv[6]));  // aperture type (0 - None, 1 - rectangle, 2 - ellipse)
-			auto aperturew = *((int*)(argv[7]));  // aperture Width
-			auto apertureh = *((int*)(argv[8]));  // aperture Height
-			auto target = (double*)(argv[9]);  // target
-			auto targetw = *((int*)(argv[10]));  // target width
-			auto targeth = *((int*)(argv[11]));  // target height
-			auto useGPU = *((bool*)(argv[12]));  // Force GPU
+			auto GerchbergSaxtonPhase = (double*)(argv[0]);  // destination
+			auto M = *((int*)(argv[1]));  // SLM width in # of pixels
+			auto N = *((int*)(argv[2]));  // SLM height in # of pixels
+			auto Ngs = *((int*)(argv[3]));  // Ngs
+			auto h = *((double*)(argv[4]));  // hologram pixel size
+			auto gaussian = *((bool*)(argv[5]));  // Gaussian Illumination
+			auto r = *((double*)(argv[6]));  // input Gaussian beam waist
+			auto aperture = *((int*)(argv[7]));  // aperture type (0 - None, 1 - rectangle, 2 - ellipse)
+			auto aperturew = *((int*)(argv[8]));  // aperture Width
+			auto apertureh = *((int*)(argv[9]));  // aperture Height
+			auto target = (double*)(argv[10]);  // target
+			auto targetw = *((int*)(argv[11]));  // target width
+			auto targeth = *((int*)(argv[12]));  // target height
+			auto useGPU = *((bool*)(argv[13]));  // Force GPU
 
 			// determine the optimal size of computation to use
 			auto TSize = targetw >= targeth ? targetw : targeth;
@@ -68,8 +69,6 @@ extern "C"
 					TPad[dst] = target[src];
 				}
 			}
-
-			GerchbergSaxtonPhase = Double(M * N, 0.0);
 
 			auto temp = Double(SLM * SLM, 0.0);
 
@@ -103,17 +102,5 @@ extern "C"
 			free(TPad);
 			free(temp);
 		}
-	}
-	
-	double* Phase()
-	{
-		return GerchbergSaxtonPhase;
-	}
-	
-	void Release()
-	{
-		free(GerchbergSaxtonPhase);
-		
-		GerchbergSaxtonPhase = NULL;
 	}
 }

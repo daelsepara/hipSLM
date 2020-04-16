@@ -17,7 +17,7 @@
 #undef max
 
 // Allocate double array on host
-static double* Double(int Length, double val)
+double* Double(int Length, double val)
 {
 	auto host = (double*)malloc(Length * sizeof(double));
 
@@ -209,14 +209,12 @@ int main(int argc, char** argv)
 		void *lib_handle;
 
 		void (*Calculate)(int, void**);
-		void (*Release)(void);
-		double* (*Phase)(void);
 		
 		char *error;
 		
 		sprintf(Libname, "./GerchbergSaxton.so");
 		
-		lib_handle = dlopen(Libname, RTLD_NOW);
+		lib_handle = dlopen(Libname, RTLD_LAZY);
 
 		if (!lib_handle)
 		{
@@ -231,33 +229,18 @@ int main(int argc, char** argv)
 		  exit(1);
 		}
 		
-		Release = (void (*)(void)) dlsym(lib_handle, "Release");
-		if ((error = dlerror()) != NULL) 
-		{
-		  fprintf(stderr, "%s\n", error);
-		  exit(1);
-		}
+		double *GerchbergSaxtonPhase = Double(M * N, 0.0);
 		
-		Phase = (double* (*)(void)) dlsym(lib_handle, "Phase");
-		if ((error = dlerror()) != NULL) 
-		{
-		  fprintf(stderr, "%s\n", error);
-		  exit(1);
-		}
-
 		// Gerchberg-Saxton
-		void* Params[] = { &M, &N, &Ngs, &h, &gaussian, &r, &aperture, &aperturew, &apertureh, target, &targetw, &targeth, &gpu };
-		(*Calculate)(13, Params);
-		
-		double *GerchbergSaxtonPhase = (*Phase)();
+		void* Params[] = { GerchbergSaxtonPhase, &M, &N, &Ngs, &h, &gaussian, &r, &aperture, &aperturew, &apertureh, target, &targetw, &targeth, &gpu };
+		(*Calculate)(14, Params);
 		
 		phasepng("phase-gs.png", GerchbergSaxtonPhase, 255, M, N);
 		
+		free(GerchbergSaxtonPhase);
 		free(target);
-		
-		(*Release)();
 	}
-
+	
 	return 0;
 }
 
