@@ -89,7 +89,7 @@ static void Shift(double* field, int sizex, int sizey)
 	}
 }
 
-void CPU::Calculate(double*& GerchbergSaxtonPhase, int M, int N, int Ngs, double h, bool gaussian, double r, int aperture, int aperturew, int apertureh, double*& target)
+void CPU::Calculate(double* GerchbergSaxtonPhase, int M, int N, int Ngs, double h, bool gaussian, double r, int aperture, int aperturew, int apertureh, double* target)
 {
 	RandomCpp random = RandomCpp();
 

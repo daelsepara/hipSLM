@@ -23,11 +23,11 @@
 typedef double2 complex;
 
 // Allocate double array on device
-static double* GPUDouble(int Length, double val, bool init = true)
+double* GPUDouble(int Length, double val, bool init = true)
 {
 	double* device;
 
-	checkHipErrors(hipMalloc((void**)&device, Length * sizeof(double)));
+	checkHipErrors(hipMalloc((void **)&device, Length * sizeof(double)));
 
 	if (init)
 	{
@@ -50,11 +50,11 @@ static double* GPUDouble(int Length, double val, bool init = true)
 }
 
 // Allocate complex array on device
-static hipDoubleComplex* GPUComplex(int Length, double val, bool init = true)
+hipfftDoubleComplex* GPUComplex(int Length, double val, bool init = true)
 {
-	hipDoubleComplex* device;
+	hipfftDoubleComplex* device;
 
-	checkHipErrors(hipMalloc((void**)&device, Length * sizeof(hipDoubleComplex)));
+	checkHipErrors(hipMalloc(&device, Length * sizeof(hipfftDoubleComplex)));
 
 	if (init)
 	{
@@ -69,7 +69,7 @@ static hipDoubleComplex* GPUComplex(int Length, double val, bool init = true)
 			}
 		}
 
-		checkHipErrors(hipMemcpy(device, host, Length * sizeof(hipDoubleComplex), hipMemcpyHostToDevice));
+		checkHipErrors(hipMemcpy(device, host, Length * sizeof(hipfftDoubleComplex), hipMemcpyHostToDevice));
 
 		free(host);
 	}
@@ -77,20 +77,20 @@ static hipDoubleComplex* GPUComplex(int Length, double val, bool init = true)
 	return device;
 }
 
-__global__ void KMakeComplexField(double* amplitude, hipDoubleComplex* phase, hipDoubleComplex* ComplexField, int xdim)
+__global__ void KMakeComplexField(double* amplitude, hipfftDoubleComplex* phase, hipfftDoubleComplex* ComplexField, int xdim)
 {
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
+	int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+	int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 	int i = x + y * xdim;
 
 	ComplexField[i].x = amplitude[i] * phase[i].x;
 	ComplexField[i].y = amplitude[i] * phase[i].y;
 }
 
-__global__ void KComputePhase(hipDoubleComplex* field, hipDoubleComplex* phase, int xdim)
+__global__ void KComputePhase(hipfftDoubleComplex* field, hipfftDoubleComplex* phase, int xdim)
 {
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
+	int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+	int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 	int i = x + y * xdim;
 
 	double angle = atan2(field[i].y, field[i].x);
@@ -100,10 +100,10 @@ __global__ void KComputePhase(hipDoubleComplex* field, hipDoubleComplex* phase, 
 }
 
 // Get angle then wrap
-__global__ void KWrap(double* phase, hipDoubleComplex* field, int xdim, double m)
+__global__ void KWrap(double* phase, hipfftDoubleComplex* field, int xdim, double m)
 {
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
+	int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+	int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 	int i = x + y * xdim;
 
 	double a = atan2(field[i].y, field[i].x);
@@ -114,8 +114,8 @@ __global__ void KWrap(double* phase, hipDoubleComplex* field, int xdim, double m
 // Note: Call with all threads assigned to the 1st quadrant (top-left)
 __global__ void KShift(double* field, int sizex, int sizey)
 {
-	int x = blockIdx.x * blockDim.x + threadIdx.x;
-	int y = blockIdx.y * blockDim.y + threadIdx.y;
+	int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+	int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 
 	double temp;
 	int midx = sizex / 2;
@@ -133,7 +133,6 @@ __global__ void KShift(double* field, int sizex, int sizey)
 		int ymo = ym + xo;
 		int yoo = yo + xo;
 
-
 		// Exchange 1st and 4th quadrant
 		temp = field[ii];
 		field[ii] = field[ymo];
@@ -146,10 +145,10 @@ __global__ void KShift(double* field, int sizex, int sizey)
 	}
 }
 
-__global__ void KCreateTargets(double* g, double* phi, hipDoubleComplex* phase, double h, bool gaussian, double r, int aperture, int aperturew, int apertureh, int M, int N)
+__global__ void KCreateTargets(double* g, double* phi, hipfftDoubleComplex* phase, double h, bool gaussian, double r, int aperture, int aperturew, int apertureh, int M, int N)
 {
-	int xx = blockIdx.x * blockDim.x + threadIdx.x;
-	int yy = blockIdx.y * blockDim.y + threadIdx.y;
+	int xx = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
+	int yy = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
 	int ii = xx + yy * M;
 
 	auto M2 = M / 2;
@@ -207,7 +206,7 @@ bool GPU::IsEnabled()
 	return nDevices > 0;
 }
 
-void GPU::Calculate(double*& GerchbergSaxtonPhase, int M, int N, int Ngs, double h, bool gaussian, double r, int aperture, int aperturew, int apertureh, double*& target)
+void GPU::Calculate(double* GerchbergSaxtonPhase, int M, int N, int Ngs, double h, bool gaussian, double r, int aperture, int aperturew, int apertureh, double* target)
 {
 	auto size = M * N;
 
@@ -221,23 +220,23 @@ void GPU::Calculate(double*& GerchbergSaxtonPhase, int M, int N, int Ngs, double
 	hiprandGenerator_t gen;
 	hiprandCreateGenerator(&gen, HIPRAND_RNG_PSEUDO_MT19937);
 	hiprandGenerateUniformDouble(gen, phi, size);
-
+	
 	auto const blocksizex = 16;
 	auto const blocksizey = 16;
 
-	dim3 dimBlock(blocksizex, blocksizey);
+	dim3 dimBlock = dim3(blocksizex, blocksizey);
 	dim3 dimGrid(M / dimBlock.x, N / dimBlock.y);
 	dim3 dimGrid2((M / 2) / dimBlock.x, (N / 2) / dimBlock.y);
 
 	// generate source, random phase
-	void* KCreateTargetsArgs[] = { &g, &phi, &phase, &h, &gaussian, &r, &aperture, &aperturew, &apertureh, &M, &N };
-	checkHipErrors(hipLaunchKernel((const void*)&KCreateTargets, dimGrid, dimBlock, KCreateTargetsArgs));
-
+	hipLaunchKernelGGL(KCreateTargets, dimGrid, dimBlock, 0, 0, g, phi, phase, h, gaussian, r, aperture, aperturew, apertureh, M, N);
+	
 	// copy target
 	auto targetD = GPUDouble(size, 0.0, false);
 	checkHipErrors(hipMemcpy(targetD, target, size * sizeof(double), hipMemcpyHostToDevice));
-
+	
 	hipfftHandle plan;
+	hipfftCreate(&plan);
 
 	auto temp = GPUComplex(size, 0.0, false);
 	auto forward = GPUComplex(size, 0.0, false);
@@ -248,43 +247,38 @@ void GPU::Calculate(double*& GerchbergSaxtonPhase, int M, int N, int Ngs, double
 	hipfftPlan2d(&plan, M, N, HIPFFT_Z2Z);
 
 	// secret sauce
-	void* KShiftArgs[] = { &targetD, &M, &N };
-	checkHipErrors(hipLaunchKernel((const void*)&KShift, dimGrid2, dimBlock, KShiftArgs));
-
+	hipLaunchKernelGGL(KShift, dimGrid2, dimBlock, 0, 0, targetD, M, N);
+	
 	for (int i = 0; i < Ngs; i++)
 	{
 		// Apply source constraints
-		void* SourceArgs[] = { &g, &phase, &temp, &M };
-		checkHipErrors(hipLaunchKernel((const void*)&KMakeComplexField, dimGrid, dimBlock, SourceArgs));
-
+		hipLaunchKernelGGL(KMakeComplexField, dimGrid, dimBlock, 0, 0, g, phase, temp, M);
+		
 		// perform forward transform
 		hipfftExecZ2Z(plan, temp, forward, HIPFFT_FORWARD);
-
-		void* ForwardArgs[] = { &forward, &phasef, &M };
-		checkHipErrors(hipLaunchKernel((const void*)&KComputePhase, dimGrid, dimBlock, ForwardArgs));
-
+		
+		hipLaunchKernelGGL(KComputePhase, dimGrid, dimBlock, 0, 0, forward, phasef, M);
+		
 		// Apply target constraints
-		void* TargetArgs[] = { &targetD, &phasef, &temp, &M };
-		checkHipErrors(hipLaunchKernel((const void*)&KMakeComplexField, dimGrid, dimBlock, TargetArgs));
-
+		hipLaunchKernelGGL(KMakeComplexField, dimGrid, dimBlock, 0, 0, targetD, phasef, temp, M);
+		
 		// perform backward transform
 		hipfftExecZ2Z(plan, temp, backward, HIPFFT_BACKWARD);
 
 		// retrieve phase
-		void* BackwardArgs[] = { &backward, &phase, &M };
-		checkHipErrors(hipLaunchKernel((const void*)&KComputePhase, dimGrid, dimBlock, BackwardArgs));
+		hipLaunchKernelGGL(KComputePhase, dimGrid, dimBlock, 0, 0, backward, phase, M);
 	}
 
 	// Compute phase then wrap into 2 * pi
 	auto PI2 = 2.0 * M_PI;
-	void* KWrapArgs[] = { &phaseD, &phase, &M, &PI2 };
-	checkHipErrors(hipLaunchKernel((const void*)&KWrap, dimGrid, dimBlock, KWrapArgs));
+	hipLaunchKernelGGL(KWrap, dimGrid, dimBlock, 0, 0, phaseD, phase, M, PI2);
+	
 	checkHipErrors(hipMemcpy(GerchbergSaxtonPhase, phaseD, size * sizeof(double), hipMemcpyDeviceToHost));
 
 	// Destroy plans, generators
 	hipfftDestroy(plan);
 	hiprandDestroyGenerator(gen);
-
+	
 	// Clean-Up arrays allocated in GPU
 	checkHipErrors(hipFree(phasef));
 	checkHipErrors(hipFree(backward));

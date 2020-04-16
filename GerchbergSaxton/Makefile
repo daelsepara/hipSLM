@@ -8,20 +8,23 @@ CFLAGS_BASE=-Wall -fPIC -std=c++11 -Wc++11-extensions -I/opt/rocm/include -I/opt
 
 LFLAGS_LIB=-shared -Wl,-soname
 
-EXEC_FLAGS=-std=c++11 -rdynamic -ldl -Wc++11-extensions -o
+EXEC_FLAGS=-std=c++11 -Wc++11-extensions -ldl -o
 
-all: GerchbergSaxton
+all: GerchbergSaxton test cleanup
 	
 GerchbergSaxton:
+	mkdir -p Release
 	hipcc $(CFLAGS_BASE) GerchbergSaxton.cpp CPU.cpp GPU.cpp
-	
-	clang++ $(LFLAGS_LIB),GerchbergSaxton.so.$(MAJ_VERSION) -o GerchbergSaxton.so.$(FUL_VERSION) GerchbergSaxton.o -lfftw3
-	ln -sf GerchbergSaxton.so.$(FUL_VERSION) GerchbergSaxton.so
+	hipcc $(LFLAGS_LIB),GerchbergSaxton.so.$(MAJ_VERSION) -o ./Release/GerchbergSaxton.so.$(FUL_VERSION) GerchbergSaxton.o CPU.o GPU.o -lfftw3 -lhiprand -lrocfft
+	ln -sf GerchbergSaxton.so.$(FUL_VERSION) ./Release/GerchbergSaxton.so
 
-cleanup:
-	rm -f *.o
+test:
+	mkdir -p Release
+	clang++ test.cpp lodepng.cpp $(EXEC_FLAGS) ./Release/test.exe
 	
-install: all cleanup
+cleanup:
+	rm -f ./Release/*.o *.o
 	
 clean:
-	rm -f *.o *.exe *.so *.so.* *.dylib
+	mkdir -p Release
+	rm -f ./Release/*.o ./Release/*.exe ./Release/*.so ./Release/*.so.* ./Release/*.dylib

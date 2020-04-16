@@ -3,12 +3,14 @@
 #define _USE_MATH_DEFINES
 #include <cstdio>
 #include <cstdlib>
+#include <iostream>
+#include <ostream>
 
 #include "CPU.h"
 #include "GPU.h"
 
 // Allocate double array on host
-static double* Double(int Length, double val)
+double* Double(int Length, double val)
 {
 	auto host = (double*)malloc(Length * sizeof(double));
 
@@ -23,20 +25,13 @@ static double* Double(int Length, double val)
 	return host;
 }
 
+double* GerchbergSaxtonPhase = NULL;
+
 extern "C"
 {
-	static double* GerchbergSaxtonPhase = NULL;
-	
-	void Release()
-	{
-		free(GerchbergSaxtonPhase);
-
-		GerchbergSaxtonPhase = NULL;
-	}
-
 	void Calculate(int argc, void** argv)
 	{
-		if (argc >= 12)
+		if (argc >= 13)
 		{
 			auto M = *((int*)(argv[0]));  // SLM width in # of pixels
 			auto N = *((int*)(argv[1]));  // SLM height in # of pixels
@@ -50,8 +45,7 @@ extern "C"
 			auto target = (double*)(argv[9]);  // target
 			auto targetw = *((int*)(argv[10]));  // target width
 			auto targeth = *((int*)(argv[11]));  // target height
-
-			free(GerchbergSaxtonPhase);
+			auto useGPU = *((bool*)(argv[12]));  // Force GPU
 
 			// determine the optimal size of computation to use
 			auto TSize = targetw >= targeth ? targetw : targeth;
@@ -83,7 +77,7 @@ extern "C"
 			GPU gpu;
 
 			// Compute phase using the Gerchberg-Saxton algorithm
-			if (gpu.IsEnabled())
+			if (useGPU && gpu.IsEnabled())
 			{
 				gpu.Calculate(temp, SLM, SLM, Ngs, h, gaussian, r, aperture, aperturew, apertureh, TPad);
 			}
@@ -110,7 +104,7 @@ extern "C"
 			free(temp);
 		}
 	}
-
+	
 	double* Phase()
 	{
 		return GerchbergSaxtonPhase;
@@ -119,7 +113,7 @@ extern "C"
 	void Release()
 	{
 		free(GerchbergSaxtonPhase);
-
+		
 		GerchbergSaxtonPhase = NULL;
 	}
 }
