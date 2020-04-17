@@ -7,6 +7,7 @@
 #include <hipfft.h>
 #include <hip/hip_runtime.h>
 #include <hiprand/hiprand.h>
+#include <rocfft.h>
 
 #include "GPU.h"
 
@@ -208,6 +209,8 @@ bool GPU::IsEnabled()
 
 void GPU::Calculate(double* GerchbergSaxtonPhase, int M, int N, int Ngs, double h, bool gaussian, double r, int aperture, int aperturew, int apertureh, double* target)
 {
+	rocfft_setup();
+	
 	auto size = M * N;
 
 	// source and target constraints
@@ -230,12 +233,13 @@ void GPU::Calculate(double* GerchbergSaxtonPhase, int M, int N, int Ngs, double 
 
 	// generate source, random phase
 	hipLaunchKernelGGL(KCreateTargets, dimGrid, dimBlock, 0, 0, g, phi, phase, h, gaussian, r, aperture, aperturew, apertureh, M, N);
+	hipDeviceSynchronize();
 	
 	// copy target
 	auto targetD = GPUDouble(size, 0.0, false);
 	checkHipErrors(hipMemcpy(targetD, target, size * sizeof(double), hipMemcpyHostToDevice));
 	
-	hipfftHandle plan;
+	hipfftHandle plan = NULL;
 	hipfftCreate(&plan);
 
 	auto temp = GPUComplex(size, 0.0, false);
@@ -248,30 +252,35 @@ void GPU::Calculate(double* GerchbergSaxtonPhase, int M, int N, int Ngs, double 
 
 	// secret sauce
 	hipLaunchKernelGGL(KShift, dimGrid2, dimBlock, 0, 0, targetD, M, N);
+	hipDeviceSynchronize();
 	
 	for (int i = 0; i < Ngs; i++)
 	{
 		// Apply source constraints
 		hipLaunchKernelGGL(KMakeComplexField, dimGrid, dimBlock, 0, 0, g, phase, temp, M);
-		
+		hipDeviceSynchronize();
 		// perform forward transform
 		hipfftExecZ2Z(plan, temp, forward, HIPFFT_FORWARD);
 		
 		hipLaunchKernelGGL(KComputePhase, dimGrid, dimBlock, 0, 0, forward, phasef, M);
+		hipDeviceSynchronize();
 		
 		// Apply target constraints
 		hipLaunchKernelGGL(KMakeComplexField, dimGrid, dimBlock, 0, 0, targetD, phasef, temp, M);
+		hipDeviceSynchronize();
 		
 		// perform backward transform
 		hipfftExecZ2Z(plan, temp, backward, HIPFFT_BACKWARD);
 
 		// retrieve phase
 		hipLaunchKernelGGL(KComputePhase, dimGrid, dimBlock, 0, 0, backward, phase, M);
+		hipDeviceSynchronize();
 	}
 
 	// Compute phase then wrap into 2 * pi
 	auto PI2 = 2.0 * M_PI;
 	hipLaunchKernelGGL(KWrap, dimGrid, dimBlock, 0, 0, phaseD, phase, M, PI2);
+	hipDeviceSynchronize();
 	
 	checkHipErrors(hipMemcpy(GerchbergSaxtonPhase, phaseD, size * sizeof(double), hipMemcpyDeviceToHost));
 
@@ -289,4 +298,6 @@ void GPU::Calculate(double* GerchbergSaxtonPhase, int M, int N, int Ngs, double 
 	checkHipErrors(hipFree(targetD));
 	checkHipErrors(hipFree(g));
 	checkHipErrors(hipFree(phaseD));
+	
+	rocfft_cleanup();
 }
