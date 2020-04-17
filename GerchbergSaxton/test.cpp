@@ -1,5 +1,5 @@
 #define _USE_MATH_DEFINES
-#include "lodepng.h"
+#include "../Includes/lodepng.h"
 
 #include <algorithm>
 #include <cmath>

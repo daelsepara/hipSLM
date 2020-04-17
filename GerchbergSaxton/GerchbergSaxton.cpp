@@ -3,8 +3,6 @@
 #define _USE_MATH_DEFINES
 #include <cstdio>
 #include <cstdlib>
-#include <iostream>
-#include <ostream>
 
 #include "CPU.h"
 #include "GPU.h"

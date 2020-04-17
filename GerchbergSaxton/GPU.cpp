@@ -28,7 +28,7 @@ double* GPUDouble(int Length, double val, bool init = true)
 {
 	double* device;
 
-	checkHipErrors(hipMalloc((void **)&device, Length * sizeof(double)));
+	checkHipErrors(hipMalloc(&device, Length * sizeof(double)));
 
 	if (init)
 	{

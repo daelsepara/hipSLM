@@ -4,19 +4,19 @@ MAJ_VERSION=1
 MIN_VERSION=0
 FUL_VERSION=$(MAJ_VERSION).$(MIN_VERSION)
 
-CFLAGS_BASE=-Wall -fPIC -std=c++11 -Wc++11-extensions -I/opt/rocm/include -I/opt/rocm/rocrand/include/ -c
+CFLAGS_BASE=-Wall -fPIC -std=c++11 -Wc++11-extensions -I/opt/rocm/include -c
 
 LFLAGS_LIB=-shared -Wl,-soname
 
 EXEC_FLAGS=-std=c++11 -Wc++11-extensions -ldl -o
 
-all: GerchbergSaxton test cleanup
+all: PrismPhase test cleanup
 	
-GerchbergSaxton:
+PrismPhase:
 	mkdir -p Release
-	hipcc $(CFLAGS_BASE) GerchbergSaxton.cpp CPU.cpp GPU.cpp
-	hipcc $(LFLAGS_LIB),GerchbergSaxton.so.$(MAJ_VERSION) -o ./Release/GerchbergSaxton.so.$(FUL_VERSION) GerchbergSaxton.o CPU.o GPU.o -lfftw3 -lhiprand -lrocfft
-	ln -sf GerchbergSaxton.so.$(FUL_VERSION) ./Release/GerchbergSaxton.so
+	hipcc $(CFLAGS_BASE) PrismPhase.cpp CPU.cpp GPU.cpp
+	hipcc $(LFLAGS_LIB),PrismPhase.so.$(MAJ_VERSION) -o ./Release/PrismPhase.so.$(FUL_VERSION) PrismPhase.o CPU.o GPU.o
+	ln -sf PrismPhase.so.$(FUL_VERSION) ./Release/PrismPhase.so
 
 test:
 	mkdir -p Release
