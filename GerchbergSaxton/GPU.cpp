@@ -51,11 +51,11 @@ double* GPUDouble(int Length, double val, bool init = true)
 }
 
 // Allocate complex array on device
-hipfftDoubleComplex* GPUComplex(int Length, double val, bool init = true)
+complex* GPUComplex(int Length, double val, bool init = true)
 {
-	hipfftDoubleComplex* device;
+	complex* device;
 
-	checkHipErrors(hipMalloc(&device, Length * sizeof(hipfftDoubleComplex)));
+	checkHipErrors(hipMalloc(&device, Length * sizeof(complex)));
 
 	if (init)
 	{
@@ -70,7 +70,7 @@ hipfftDoubleComplex* GPUComplex(int Length, double val, bool init = true)
 			}
 		}
 
-		checkHipErrors(hipMemcpy(device, host, Length * sizeof(hipfftDoubleComplex), hipMemcpyHostToDevice));
+		checkHipErrors(hipMemcpy(device, host, Length * sizeof(complex), hipMemcpyHostToDevice));
 
 		free(host);
 	}
@@ -78,7 +78,7 @@ hipfftDoubleComplex* GPUComplex(int Length, double val, bool init = true)
 	return device;
 }
 
-__global__ void KMakeComplexField(double* amplitude, hipfftDoubleComplex* phase, hipfftDoubleComplex* ComplexField, int xdim)
+__global__ void KMakeComplexField(double* amplitude, complex* phase, complex* ComplexField, int xdim)
 {
 	int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
 	int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
@@ -88,7 +88,7 @@ __global__ void KMakeComplexField(double* amplitude, hipfftDoubleComplex* phase,
 	ComplexField[i].y = amplitude[i] * phase[i].y;
 }
 
-__global__ void KComputePhase(hipfftDoubleComplex* field, hipfftDoubleComplex* phase, int xdim)
+__global__ void KComputePhase(complex* field, complex* phase, int xdim)
 {
 	int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
 	int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
@@ -101,7 +101,7 @@ __global__ void KComputePhase(hipfftDoubleComplex* field, hipfftDoubleComplex* p
 }
 
 // Get angle then wrap
-__global__ void KWrap(double* phase, hipfftDoubleComplex* field, int xdim, double m)
+__global__ void KWrap(double* phase, complex* field, int xdim, double m)
 {
 	int x = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
 	int y = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;
@@ -146,7 +146,7 @@ __global__ void KShift(double* field, int sizex, int sizey)
 	}
 }
 
-__global__ void KCreateTargets(double* g, double* phi, hipfftDoubleComplex* phase, double h, bool gaussian, double r, int aperture, int aperturew, int apertureh, int M, int N)
+__global__ void KCreateTargets(double* g, double* phi, complex* phase, double h, bool gaussian, double r, int aperture, int aperturew, int apertureh, int M, int N)
 {
 	int xx = hipBlockIdx_x * hipBlockDim_x + hipThreadIdx_x;
 	int yy = hipBlockIdx_y * hipBlockDim_y + hipThreadIdx_y;

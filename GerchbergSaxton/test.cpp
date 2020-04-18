@@ -161,8 +161,6 @@ int main(int argc, char** argv)
 	char InputFile[200];
 	InputFile[0] = '\0';
 
-	int block = 16;
-
 	for (int i = 0; i < argc; i++)
 	{
 		std::string arg = argv[i];
@@ -177,8 +175,6 @@ int main(int argc, char** argv)
 			strncpy(InputFile, &argv[i][8], sizeof(InputFile));
 		}
 
-		ParseInt(arg, "/blocksize=", "block size", block);
-		
 		if (!arg.compare("/gpu"))
 		{
 			gpu = true;

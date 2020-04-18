@@ -109,8 +109,9 @@ int main(int argc, char** argv)
 	auto M = 800;  // SLM width in # of pixels
 	auto N = 600;  // SLM height in # of pixels
 	auto gpu = false;
-	auto MirrorX = 100.0;
-	auto MirrorY = 100.0;
+	double z = 1000.0;
+	double lambda = 635;
+	double h = 20.0;
 	
 	for (int i = 0; i < argc; i++)
 	{
@@ -119,8 +120,9 @@ int main(int argc, char** argv)
 
 		ParseInt(arg, "/m=", "SLM Width", M);
 		ParseInt(arg, "/n=", "SLM Height", N);
-		ParseDouble(arg, "/x=", "Mirror X Displacement", MirrorX);
-		ParseDouble(arg, "/y=", "Mirror Y Displacement", MirrorY);
+		ParseDouble(arg, "/z=", "z displacement", z);
+		ParseDouble(arg, "/l=", "wavelength", lambda);
+		ParseDouble(arg, "/h=", "SLM Pixel Size", h);
 		
 		if (!arg.compare("/gpu"))
 		{
@@ -138,7 +140,7 @@ int main(int argc, char** argv)
 	
 	char *error;
 	
-	sprintf(Libname, "./PrismPhase.so");
+	sprintf(Libname, "./LensPhase.so");
 	
 	lib_handle = dlopen(Libname, RTLD_LAZY);
 
@@ -155,15 +157,15 @@ int main(int argc, char** argv)
 	  exit(1);
 	}
 	
-	double *PrismPhase = Double(M * N, 0.0);
+	double *LensPhase = Double(M * N, 0.0);
 	
-	// Prism Phase
-	void* Params[] = { PrismPhase, &M, &N, &MirrorX, &MirrorY, &gpu };
-	(*Calculate)(6, Params);
+	// Lens Phase
+	void* Params[] = { LensPhase, &M, &N, &z, &lambda, &h, &gpu };
+	(*Calculate)(7, Params);
 	
-	phasepng("phase-mirror.png", PrismPhase, 255, M, N);
+	phasepng("phase-lens.png", LensPhase, 255, M, N);
 	
-	free(PrismPhase);
+	free(LensPhase);
 	
 	return 0;
 }
